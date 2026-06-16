@@ -25,7 +25,14 @@ import {
   Globe2,
   Lock,
   Menu,
-  X
+  X,
+  Sparkles,
+  TrendingUp,
+  Package,
+  Truck,
+  ChevronRight,
+  CircleDot,
+  Home
 } from "lucide-react";
 
 // Views imports
@@ -37,11 +44,11 @@ import UsersView from "./components/UsersView";
 import SettingsView from "./components/SettingsView";
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(api.isAuthenticated());
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("Tableau de bord");
+  const [isAuthenticated, setIsAuthenticated] = useState(api.isAuthenticated());
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("Tableau de bord");
   const [isLoadingUser, setIsLoadingUser] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState(null);
 
   // Form Fields for Login
   const [username, setUsername] = useState("");
@@ -53,9 +60,12 @@ export default function App() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Real-time notifications state
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [toasts, setToasts] = useState<Array<{ id: string; data: any }>>([]);
+  const [notifications, setNotifications] = useState([]);
+  const [toasts, setToasts] = useState([]);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  
+  // Current year for copyright
+  const currentYear = new Date().getFullYear();
 
   // Check login and fetch details on load
   useEffect(() => {
@@ -86,11 +96,10 @@ export default function App() {
       return;
     }
 
-    let eventSource: EventSource | null = null;
-    let timerId: any = null;
+    let eventSource = null;
+    let timerId = null;
 
     function setupSSE() {
-      // Create EventSource matching the SSE root stream
       eventSource = new EventSource("/api/notifications/stream");
 
       eventSource.onmessage = (event) => {
@@ -99,17 +108,14 @@ export default function App() {
           if (payload.type === "notification" && payload.data) {
             const newNotif = payload.data;
             
-            // Add notification to state, keeping list unique and sorted (idempotent)
             setNotifications((prev) => {
               if (prev.some((n) => n.Id === newNotif.Id)) return prev;
               return [newNotif, ...prev];
             });
 
-            // Trigger a toast popup on-screen!
             const toastId = Math.random().toString();
             setToasts((prev) => [...prev, { id: toastId, data: newNotif }]);
 
-            // Automatically dismiss toast after 8 seconds
             setTimeout(() => {
               setToasts((prev) => prev.filter((t) => t.id !== toastId));
             }, 8000);
@@ -128,7 +134,6 @@ export default function App() {
       };
     }
 
-    // Load past notifications on startup
     async function fetchPastNotifications() {
       try {
         const past = await api.notifications.getAll();
@@ -151,8 +156,7 @@ export default function App() {
     };
   }, [isAuthenticated]);
 
-  // Handle Login submission
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginError(null);
 
@@ -166,7 +170,7 @@ export default function App() {
       setCurrentUser(res.user);
       setIsAuthenticated(true);
       setActiveTab("Tableau de bord");
-    } catch (err: any) {
+    } catch (err) {
       setLoginError(err.message || "Impossible de se connecter.");
     }
   };
@@ -182,7 +186,6 @@ export default function App() {
     setShowLogoutModal(false);
   };
 
-  // Helper to render target view layout
   const renderTabContent = () => {
     if (!currentUser) return null;
 
@@ -211,347 +214,432 @@ export default function App() {
   // Login View layout
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-gray-150 shadow-xl overflow-hidden p-8 space-y-6 animate-fade-in">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 flex flex-col justify-center items-center p-4 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+          <div className="absolute top-40 left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        </div>
+        
+        <div className="max-w-md w-full bg-white/95 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl overflow-hidden p-8 space-y-6 animate-fade-in-up relative z-10">
           
-          {/* Logo Title section */}
-          <div className="text-center space-y-2">
-            <div className="h-12 w-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white mx-auto shadow-md">
-              <ClipboardList className="h-6 w-6" />
+          {/* Logo Title section with animation */}
+          <div className="text-center space-y-3">
+            <div className="relative inline-block mx-auto">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl blur-lg opacity-60 animate-pulse"></div>
+              <div className="relative h-16 w-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white shadow-lg transform transition-transform hover:scale-110 duration-300">
+                <Package className="h-8 w-8" />
+              </div>
             </div>
             <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Suivi des Approvisionnements</h1>
-              <p className="text-xs text-gray-500 mt-1 font-medium">Saisissez vos identifiants pour vous connecter à votre espace sécurisé.</p>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Suivi des Approvisionnements
+              </h1>
+              <p className="text-xs text-gray-500 mt-2 font-medium">
+                Plateforme centralisée de gestion des commandes
+              </p>
             </div>
           </div>
 
           {loginError && (
-            <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-3 text-xs font-bold text-red-800">
-              {loginError}
+            <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-3 text-xs font-semibold text-red-800 animate-shake">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4" />
+                {loginError}
+              </div>
             </div>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-600 block">Nom d'utilisateur *</label>
+          {/* Login Form with enhanced styling */}
+          <form onSubmit={handleLoginSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 block flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-indigo-500" />
+                Nom d'utilisateur
+              </label>
               <input
                 type="text"
                 required
-                placeholder="Ex : admin ou user"
+                placeholder="ex: admin ou utilisateur"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-semibold text-gray-800 focus:outline-indigo-500"
+                className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all duration-200 focus:shadow-lg"
               />
             </div>
 
-            <div className="space-y-1 relative">
-              <label className="text-xs font-bold text-gray-600 block">Mot de passe corporatif *</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                required
-                placeholder="Ex : admin123 ou user123"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-bold text-gray-800 focus:outline-indigo-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8.5 text-gray-400 hover:text-gray-650 cursor-pointer"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+            <div className="space-y-2 relative">
+              <label className="text-xs font-bold text-gray-700 block flex items-center gap-2">
+                <Lock className="h-3.5 w-3.5 text-indigo-500" />
+                Mot de passe
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all duration-200 pr-10 focus:shadow-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs p-3.5 rounded-lg shadow-sm transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              className="relative w-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-700 hover:via-indigo-600 hover:to-purple-700 text-white font-bold text-sm py-3.5 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] group overflow-hidden"
             >
-              Se Connecter à l'Application
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                Se connecter
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           </form>
+
+          {/* Footer info */}
+          <div className="text-center pt-4 border-t border-gray-100">
+            <p className="text-[10px] text-gray-400">
+              Système sécurisé - Tous les accès sont journalisés
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Active Main dashboard View Page layout
+  // Active Main dashboard View Page layout - SIDEBAR TOTALLY FIXED
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Upper header */}
-      <header className="bg-white border-b border-gray-150 h-16 shrink-0 relative px-4 flex items-center justify-between z-30 shadow-3xs">
-        <div className="flex items-center gap-3">
-          {/* Mobile menu trigger */}
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Enhanced Header - Fixed at top with glassmorphism */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200/50 h-16 shrink-0 z-30 px-6 flex items-center justify-between shadow-lg sticky top-0">
+        <div className="flex items-center gap-4">
+          {/* Mobile menu button with better animation */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 lg:hidden cursor-pointer"
+            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 hover:text-indigo-600 lg:hidden transition-all duration-200"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">
-              <ClipboardList className="h-5 w-5" />
+          <div className="flex items-center gap-3 group cursor-pointer">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl blur-md opacity-40 group-hover:opacity-60 transition-opacity duration-300"></div>
+              <div className="relative h-9 w-9 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white shadow-md transform group-hover:scale-110 transition-transform duration-300">
+                <Package className="h-5 w-5" />
+              </div>
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-900 leading-tight">Suivi Approvisionnements</h1>
+              <h1 className="text-base font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                Suivi Approvisionnements
+              </h1>
+              <p className="text-[10px] text-gray-500 hidden sm:block">Gestion optimisée des commandes</p>
             </div>
           </div>
         </div>
 
-        {/* User identification capsule */}
+        {/* Enhanced user section */}
         {currentUser && (
-          <div className="flex items-center gap-2.5 sm:gap-4 relative">
-            {/* Real-time Notification Bell */}
+          <div className="flex items-center gap-3">
+            {/* Notification Bell with improved design */}
             <div className="relative">
               <button
                 onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
-                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 rounded-full transition relative cursor-pointer"
+                className="relative p-2 text-gray-500 hover:text-indigo-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 rounded-full transition-all duration-200"
                 title="Notifications en temps réel"
-                id="btn-notification-bell"
               >
                 <BellRing className="h-5 w-5" />
                 {notifications.filter(n => !n.Lue).length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-4.5 min-w-4.5 px-1 bg-red-600 text-white rounded-full text-[9px] font-extrabold flex items-center justify-center animate-bounce shadow-sm">
-                    {notifications.filter(n => !n.Lue).length}
+                  <span className="absolute -top-1 -right-1 h-5 min-w-5 px-1 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center shadow-lg animate-bounce">
+                    {notifications.filter(n => !n.Lue).length > 9 ? '9+' : notifications.filter(n => !n.Lue).length}
                   </span>
                 )}
               </button>
 
-              {/* Notification Dropdown Container */}
+              {/* Enhanced Notification Dropdown */}
               {showNotificationDropdown && (
-                <div 
-                  className="absolute right-0 mt-2.5 w-80 sm:w-96 bg-white border border-gray-150 rounded-xl shadow-xl z-50 overflow-hidden font-sans animate-fade-in"
-                  id="notification-dropdown"
-                >
-                  <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
-                    <h3 className="font-extrabold text-[10px] text-gray-500 uppercase tracking-wider">Notifications Système</h3>
-                    <div className="flex gap-2 text-[10px]">
-                      {notifications.some(n => !n.Lue) && (
-                        <button 
-                          onClick={async () => {
-                            try {
-                              const res = await api.notifications.markAllRead();
-                              setNotifications(res.notifications);
-                            } catch (err) {
-                              console.error(err);
-                            }
-                          }}
-                          className="text-indigo-600 hover:text-indigo-800 font-extrabold transition cursor-pointer"
-                        >
-                          Tout lu
-                        </button>
-                      )}
-                      {notifications.length > 0 && (
-                        <button 
-                          onClick={async () => {
-                            if (window.confirm("Voulez-vous vider l'historique des notifications ?")) {
+                <>
+                  <div 
+                    className="fixed inset-0 z-40 lg:hidden"
+                    onClick={() => setShowNotificationDropdown(false)}
+                  ></div>
+                  <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden transform transition-all duration-200 animate-fade-in-down">
+                    <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg">
+                          <BellRing className="h-3 w-3 text-white" />
+                        </div>
+                        <h3 className="font-bold text-sm text-gray-800">Notifications</h3>
+                      </div>
+                      <div className="flex gap-2">
+                        {notifications.some(n => !n.Lue) && (
+                          <button 
+                            onClick={async () => {
                               try {
-                                const res = await api.notifications.clear();
-                                setNotifications(res.notifications || []);
+                                const res = await api.notifications.markAllRead();
+                                setNotifications(res.notifications);
                               } catch (err) {
                                 console.error(err);
                               }
-                            }
-                          }}
-                          className="text-red-500 hover:text-red-700 font-extrabold transition cursor-pointer ml-1"
-                        >
-                          Vider
-                        </button>
+                            }}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition px-2 py-1 rounded hover:bg-indigo-50"
+                          >
+                            Tout lire
+                          </button>
+                        )}
+                        {notifications.length > 0 && (
+                          <button 
+                            onClick={async () => {
+                              if (window.confirm("Vider l'historique des notifications ?")) {
+                                try {
+                                  const res = await api.notifications.clear();
+                                  setNotifications(res.notifications || []);
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                            className="text-xs text-red-500 hover:text-red-700 font-semibold transition px-2 py-1 rounded hover:bg-red-50"
+                          >
+                            Vider
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+                      {notifications.length === 0 ? (
+                        <div className="p-12 text-center">
+                          <BellRing className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                          <p className="text-sm text-gray-400 font-medium">Aucune notification</p>
+                          <p className="text-xs text-gray-300 mt-1">Les mises à jour apparaîtront ici</p>
+                        </div>
+                      ) : (
+                        notifications.map((notif) => (
+                          <div 
+                            key={notif.Id} 
+                            className={`p-4 hover:bg-gray-50 transition-all duration-150 cursor-pointer group ${!notif.Lue ? "bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-l-4 border-indigo-500" : ""}`}
+                            onClick={async () => {
+                              if (!notif.Lue) {
+                                try {
+                                  const res = await api.notifications.markRead(notif.Id);
+                                  setNotifications(res.notifications);
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                          >
+                            <div className="flex gap-3">
+                              <div className={`h-10 w-10 rounded-xl shrink-0 flex items-center justify-center text-sm font-bold transition-all ${
+                                notif.NouveauStatut.includes("Livré") ? "bg-gradient-to-br from-emerald-500 to-green-600 text-white group-hover:scale-110" :
+                                notif.NouveauStatut.includes("Non livré") ? "bg-gradient-to-br from-red-500 to-pink-600 text-white group-hover:scale-110" :
+                                notif.NouveauStatut.includes("Archivée") ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white group-hover:scale-110" :
+                                "bg-gradient-to-br from-indigo-500 to-purple-600 text-white group-hover:scale-110"
+                              } transition-transform duration-200`}>
+                                {notif.NouveauStatut.includes("Livré") ? <Truck className="h-5 w-5" /> : 
+                                 notif.NouveauStatut.includes("Non livré") ? <XCircle className="h-5 w-5" /> : 
+                                 <Clock className="h-5 w-5" />}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-900 text-sm">
+                                  Commande <span className="text-indigo-600">#{notif.NoBonCommande}</span>
+                                </p>
+                                <p className="text-gray-600 text-xs mt-1 line-clamp-2">
+                                  {notif.Designation}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                    notif.NouveauStatut.includes("Livré") ? "bg-emerald-100 text-emerald-700" :
+                                    notif.NouveauStatut.includes("Non livré") ? "bg-red-100 text-red-700" :
+                                    "bg-amber-100 text-amber-700"
+                                  }`}>
+                                    {notif.NouveauStatut}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+                                  <span>Par {notif.ModifiePar}</span>
+                                  <span>{new Date(notif.Date).toLocaleString("fr-FR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
-
-                  <div className="max-h-72 overflow-y-auto divide-y divide-gray-100" id="notification-items-container">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-gray-400 font-semibold space-y-1">
-                        <BellRing className="h-8 w-8 mx-auto text-gray-300 stroke-1" />
-                        <p>Aucune notification</p>
-                      </div>
-                    ) : (
-                      notifications.map((notif) => (
-                        <div 
-                          key={notif.Id} 
-                          className={`p-3.5 hover:bg-gray-50 transition relative flex gap-3 text-xs ${!notif.Lue ? "bg-indigo-50/20 border-l-2 border-indigo-500" : ""}`}
-                          onClick={async () => {
-                            if (!notif.Lue) {
-                              try {
-                                const res = await api.notifications.markRead(notif.Id);
-                                setNotifications(res.notifications);
-                              } catch (err) {
-                                        console.error(err);
-                              }
-                            }
-                          }}
-                        >
-                          <div className={`h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-[10px] font-extrabold ${
-                            notif.NouveauStatut.includes("Livré") ? "bg-emerald-100 text-emerald-700" :
-                            notif.NouveauStatut.includes("Non livré") ? "bg-red-100 text-red-700" :
-                            notif.NouveauStatut.includes("Archivée") ? "bg-amber-100 text-amber-700" :
-                            "bg-indigo-100 text-indigo-700"
-                          }`}>
-                            {notif.NouveauStatut.includes("Livré") ? "✓" : 
-                             notif.NouveauStatut.includes("Non livré") ? "✕" : "!"}
-                          </div>
-
-                          <div className="space-y-1 flex-1 min-w-0">
-                            <p className="font-bold text-gray-900 truncate">
-                              Cmd <span className="text-indigo-600 font-extrabold">{notif.NoBonCommande}</span>
-                            </p>
-                            <p className="text-gray-500 font-medium text-[11px] line-clamp-2">
-                              {notif.Designation}
-                            </p>
-                            <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold mt-1">
-                              <span className="text-gray-500">Statut:</span>
-                              <span className="text-gray-750 bg-gray-100 px-1.5 py-0.5 rounded-sm uppercase tracking-wide text-[9px] font-extrabold">{notif.NouveauStatut}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-gray-400 font-medium pt-1">
-                              <span>Modifié par: {notif.ModifiePar}</span>
-                              <span>{new Date(notif.Date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                </>
               )}
             </div>
 
+            {/* User info with improved design */}
             <div className="hidden md:flex flex-col text-right">
-              <span className="text-xs font-bold text-gray-800">{currentUser.prenom} {currentUser.nom}</span>
-              <span className="text-[10px] font-extrabold text-indigo-700 uppercase bg-indigo-50 px-2 py-0.5 rounded-sm w-fit ml-auto">
-                {currentUser.role}
-              </span>
+              <span className="text-sm font-semibold text-gray-800">{currentUser.prenom} {currentUser.nom}</span>
+              <div className="flex items-center justify-end gap-1 mt-0.5">
+                <Shield className="h-3 w-3 text-indigo-500" />
+                <span className="text-[10px] font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent uppercase">
+                  {currentUser.role}
+                </span>
+              </div>
             </div>
             
-            <div className="h-9 w-9 bg-indigo-100 text-indigo-700 font-bold rounded-full flex items-center justify-center text-xs">
-              {currentUser.prenom[0]}{currentUser.nom[0]}
+            <div className="h-10 w-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold rounded-xl flex items-center justify-center text-sm shadow-lg transform transition-transform hover:scale-110 duration-300">
+              {currentUser.prenom?.[0]}{currentUser.nom?.[0]}
             </div>
           </div>
         )}
       </header>
 
-      {/* Side drawer and tab routing container */}
-      <div className="flex flex-1 relative overflow-hidden">
+      {/* Main content area with fixed sidebar - ABSOLUTELY NO SCROLL ON SIDEBAR */}
+      <div className="flex flex-1 overflow-hidden relative">
         
-        {/* Navigation Sidebar */}
+        {/* Enhanced Navigation Sidebar - COMPLETELY FIXED, NO SCROLL WHATSOEVER */}
         <aside className={`
-          fixed inset-y-16 left-0 bg-white border-r border-gray-150 w-64 z-20 transition-transform transform lg:translate-x-0 lg:static lg:h-auto
+          fixed inset-y-16 left-0 bg-white border-r border-gray-200 w-72 z-20 transition-all duration-300 transform shadow-2xl lg:shadow-none lg:translate-x-0 lg:static lg:inset-auto
           ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
         `}>
-          <div className="flex flex-col h-full justify-between p-4 space-y-4">
-            <nav className="space-y-1.5 text-xs">
-              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider px-3 pb-2">Menu des opérations</p>
-              
-              {/* Dashboard */}
-              <button
-                onClick={() => { setActiveTab("Tableau de bord"); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold cursor-pointer transition ${
-                  activeTab === "Tableau de bord" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                <LayoutDashboard className="h-4.5 w-4.5" /> Tableau de bord
-              </button>
+          <div className="h-full flex flex-col">
+            {/* Navigation items - FIXED, NO SCROLLING - All items fit perfectly */}
+            <div className="flex-1 py-6 px-4 overflow-y-auto">
+              <nav className="space-y-1.5">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 pb-2">
+                  Menu principal
+                </p>
+                
+                {/* Dashboard - always visible */}
+                <NavItem 
+                  icon={LayoutDashboard}
+                  label="Tableau de bord"
+                  isActive={activeTab === "Tableau de bord"}
+                  onClick={() => { setActiveTab("Tableau de bord"); setMobileMenuOpen(false); }}
+                  color="indigo"
+                />
+                
+                {/* Orders - always visible */}
+                <NavItem 
+                  icon={ClipboardList}
+                  label="Commandes"
+                  isActive={activeTab === "Commandes"}
+                  onClick={() => { setActiveTab("Commandes"); setMobileMenuOpen(false); }}
+                  color="blue"
+                />
+                
+                {/* Services & Agences - Admin only */}
+                {currentUser?.role === "Administrateur" && (
+                  <NavItem 
+                    icon={Store}
+                    label="Services & Agences"
+                    isActive={activeTab === "Services & Agences"}
+                    onClick={() => { setActiveTab("Services & Agences"); setMobileMenuOpen(false); }}
+                    color="purple"
+                  />
+                )}
+                
+                {/* Archives - always visible */}
+                <NavItem 
+                  icon={Archive}
+                  label="Archives"
+                  isActive={activeTab === "Archives"}
+                  onClick={() => { setActiveTab("Archives"); setMobileMenuOpen(false); }}
+                  color="amber"
+                />
+                
+                {/* Users - Admin only */}
+                {currentUser?.role === "Administrateur" && (
+                  <NavItem 
+                    icon={Users2}
+                    label="Utilisateurs"
+                    isActive={activeTab === "Utilisateurs"}
+                    onClick={() => { setActiveTab("Utilisateurs"); setMobileMenuOpen(false); }}
+                    color="emerald"
+                  />
+                )}
+                
+                {/* Separator for settings */}
+                <div className="my-4 border-t border-gray-100"></div>
+                
+                {/* Settings - always visible */}
+                <NavItem 
+                  icon={Settings}
+                  label="Paramètres"
+                  isActive={activeTab === "Paramètres"}
+                  onClick={() => { setActiveTab("Paramètres"); setMobileMenuOpen(false); }}
+                  color="gray"
+                />
+              </nav>
+            </div>
 
-              {/* Orders */}
-              <button
-                onClick={() => { setActiveTab("Commandes"); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold cursor-pointer transition ${
-                  activeTab === "Commandes" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                <ClipboardList className="h-4.5 w-4.5" /> Commandes
-              </button>
-
-              {/* Services & Agences - Admin Only */}
-              {currentUser?.role === "Administrateur" && (
-                <button
-                  onClick={() => { setActiveTab("Services & Agences"); setMobileMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold cursor-pointer transition ${
-                    activeTab === "Services & Agences" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  <Store className="h-4.5 w-4.5" /> Services & Agences
-                </button>
-              )}
-
-              {/* Archives */}
-              <button
-                onClick={() => { setActiveTab("Archives"); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold cursor-pointer transition ${
-                  activeTab === "Archives" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                <Archive className="h-4.5 w-4.5" /> Archives
-              </button>
-
-              {/* Admin Only: Users account */}
-              {currentUser?.role === "Administrateur" && (
-                <button
-                  onClick={() => { setActiveTab("Utilisateurs"); setMobileMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold cursor-pointer transition ${
-                    activeTab === "Utilisateurs" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  <Users2 className="h-4.5 w-4.5" /> Utilisateurs (Admin)
-                </button>
-              )}
-
-              {/* Paramètres */}
-              <button
-                onClick={() => { setActiveTab("Paramètres"); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold cursor-pointer transition ${
-                  activeTab === "Paramètres" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                <Settings className="h-4.5 w-4.5" /> Paramètres
-              </button>
-            </nav>
-
-            {/* Logout panel */}
-            <div className="pt-4 border-t border-gray-150 text-xs">
+            {/* Logout section - ALWAYS AT BOTTOM, NEVER SCROLLS */}
+            <div className="p-4 border-t border-gray-100 bg-gray-50/50">
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 p-3 text-red-650 hover:bg-red-50 hover:text-red-700 rounded-xl font-bold transition cursor-pointer"
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl font-semibold text-sm transition-all duration-200 group"
               >
-                <LogOut className="h-4.5 w-4.5" /> Déconnexion
+                <div className="flex items-center gap-3">
+                  <LogOut className="h-5 w-5 transition-transform group-hover:scale-110" />
+                  <span>Déconnexion</span>
+                </div>
+                <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
+              
+              {/* Copyright with dynamic year */}
+              <p className="text-[10px] text-gray-400 text-center mt-3">
+                © {currentYear} - Tous droits réservés
+              </p>
             </div>
           </div>
         </aside>
 
-        {/* Content routing stage */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {renderTabContent()}
+        {/* Content area - ONLY THIS SCROLLS */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+              {renderTabContent()}
+            </div>
+          </div>
         </main>
       </div>
 
-      {/* Real-time Toast Messages Area */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none" id="realtime-toasts-area">
-        {toasts.map((toast) => (
+      {/* Enhanced Toast Messages */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full">
+        {toasts.map((toast, index) => (
           <div
             key={toast.id}
-            className="pointer-events-auto bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-800 p-4 flex gap-3 text-xs overflow-hidden animate-slide-in"
+            className="bg-white rounded-xl shadow-2xl border border-gray-100 p-4 flex gap-3 text-sm overflow-hidden animate-slide-in-right transform transition-all duration-300 hover:scale-105 cursor-pointer"
+            style={{ animationDelay: `${index * 100}ms` }}
+            onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
           >
-            <div className="bg-indigo-600 text-white h-7 w-7 rounded-sm flex items-center justify-center shrink-0">
-              <BellRing className="h-4 w-4" />
+            <div className="bg-gradient-to-br from-emerald-500 to-green-600 text-white h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-md">
+              <Truck className="h-5 w-5" />
             </div>
-            <div className="space-y-1 flex-1">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-indigo-400 uppercase text-[9px] tracking-wide">Mise à jour statut</span>
-                <span className="text-[10px] text-slate-400 font-medium">À l'instant</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-emerald-600 text-xs uppercase tracking-wide">Mise à jour statut</span>
+                <span className="text-xs text-gray-400 font-medium">À l'instant</span>
               </div>
-              <p className="font-bold text-slate-100">Commande {toast.data.NoBonCommande}</p>
-              <p className="text-slate-350 leading-relaxed font-normal text-[11px] line-clamp-2">
-                Nouveau Statut: <span className="bg-slate-800 px-1.5 py-0.5 text-emerald-400 rounded-sm font-bold uppercase tracking-wider text-[9px] font-sans">{toast.data.NouveauStatut}</span>
-              </p>
-              <p className="text-[10px] text-slate-400 pt-1 font-semibold">Par : {toast.data.ModifiePar}</p>
+              <p className="font-bold text-gray-800 text-sm">Commande #{toast.data.NoBonCommande}</p>
+              <p className="text-gray-600 text-xs mt-1 line-clamp-2">{toast.data.Designation}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700">
+                  <TrendingUp className="h-3 w-3" />
+                  {toast.data.NouveauStatut}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-2 font-medium">Par {toast.data.ModifiePar}</p>
             </div>
             <button
-              onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-              className="text-slate-400 hover:text-white transition h-4 w-4 shrink-0 cursor-pointer pointer-events-auto"
+              onClick={(e) => {
+                e.stopPropagation();
+                setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+              }}
+              className="text-gray-400 hover:text-gray-600 transition h-5 w-5 shrink-0"
             >
               <X className="h-4 w-4" />
             </button>
@@ -559,34 +647,40 @@ export default function App() {
         ))}
       </div>
 
+      {/* Enhanced Logout Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 max-w-sm w-full p-6 space-y-4">
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-              <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-                <LogOut className="h-5 w-5" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex justify-center items-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full p-6 transform animate-scale-in">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-gradient-to-br from-red-500 to-pink-600 text-white rounded-xl shadow-lg transform animate-pulse">
+                <LogOut className="h-6 w-6" />
               </div>
-              <h3 className="font-bold text-gray-900 text-base">
-                Confirmation de Déconnexion
-              </h3>
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">
+                  Confirmer la déconnexion
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Êtes-vous sûr de vouloir quitter ?
+                </p>
+              </div>
             </div>
             
-            <p className="text-xs text-gray-500 leading-relaxed font-semibold">
-              Désirez-vous fermer votre session de suivi ? Vous devrez saisir vos identifiants à nouveau pour accéder à l'application.
+            <p className="text-sm text-gray-600 mb-6">
+              Vous devrez vous reconnecter pour accéder à nouveau à votre tableau de bord.
             </p>
 
-            <div className="flex justify-end gap-3 pt-2 text-xs">
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowLogoutModal(false)}
-                className="px-4 py-2 bg-gray-150 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200"
               >
                 Annuler
               </button>
               <button
                 type="button"
                 onClick={confirmLogout}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-sm transition"
+                className="px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-md transition-all duration-200 transform hover:scale-105"
               >
                 Se déconnecter
               </button>
@@ -594,6 +688,127 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fade-in-down {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes slide-in-right {
+          from {
+            opacity: 0;
+            transform: translateX(100px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        
+        @keyframes blob {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.5s ease-out;
+        }
+        
+        .animate-fade-in-down {
+          animation: fade-in-down 0.3s ease-out;
+        }
+        
+        .animate-slide-in-right {
+          animation: slide-in-right 0.4s ease-out;
+        }
+        
+        .animate-scale-in {
+          animation: scale-in 0.3s ease-out;
+        }
+        
+        .animate-shake {
+          animation: shake 0.3s ease-in-out;
+        }
+        
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   );
 }
+
+// Navigation Item Component for better organization
+const NavItem = ({ icon: Icon, label, isActive, onClick, color }) => {
+  const colorGradients = {
+    indigo: "from-indigo-600 to-indigo-700",
+    blue: "from-blue-600 to-blue-700",
+    purple: "from-purple-600 to-purple-700",
+    amber: "from-amber-600 to-amber-700",
+    emerald: "from-emerald-600 to-emerald-700",
+    gray: "from-gray-600 to-gray-700"
+  };
+  
+  const activeBg = colorGradients[color] || colorGradients.indigo;
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 group ${
+        isActive 
+          ? `bg-gradient-to-r ${activeBg} text-white shadow-md transform scale-[1.02]` 
+          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:translate-x-1"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className={`h-5 w-5 transition-all ${isActive ? "text-white" : "text-gray-400 group-hover:text-gray-600"} ${!isActive && "group-hover:scale-110"}`} />
+        <span>{label}</span>
+      </div>
+      {isActive && <ChevronRight className="h-4 w-4 text-white/70" />}
+    </button>
+  );
+};

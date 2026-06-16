@@ -9,7 +9,15 @@ import {
   X, 
   Search,
   FilterX,
-  ShieldAlert
+  ShieldAlert,
+  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  Hash,
+  TrendingUp,
+  Database,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface SuppliersViewProps {
@@ -32,6 +40,10 @@ export default function SuppliersView({ currentUser }: SuppliersViewProps) {
 
   // Search filters
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -84,13 +96,14 @@ export default function SuppliersView({ currentUser }: SuppliersViewProps) {
       if (modalType === "Services") {
         const updated = await api.services.create(trimmed);
         setServices(updated);
-        flashSuccess(`Le service émetteur "${trimmed}" a été créé avec succès.`);
+        flashSuccess(`Service "${trimmed}" créé avec succès.`);
       } else {
         const updated = await api.agencies.create(trimmed);
         setAgencies(updated);
-        flashSuccess(`L'agence fournisseur "${trimmed}" a été créée avec succès.`);
+        flashSuccess(`Agence "${trimmed}" créée avec succès.`);
       }
       setShowModal(false);
+      setCurrentPage(1); // Reset à la page 1 après création
     } catch (err: any) {
       setFormError(err.message || "Impossible d'ajouter cet élément.");
     }
@@ -98,238 +111,480 @@ export default function SuppliersView({ currentUser }: SuppliersViewProps) {
 
   const handleDeleteItem = async (name: string, type: ManagementTab) => {
     if (currentUser.role !== "Administrateur") {
-      alert("Droits administrateur requis pour supprimer des éléments.");
+      alert("Droits administrateur requis.");
       return;
     }
 
-    const typeLabel = type === "Services" ? "le service émetteur" : "l'agence fournisseur";
-    if (window.confirm(`Désirez-vous supprimer définitivement ${typeLabel} "${name}" ?`)) {
+    const typeLabel = type === "Services" ? "le service" : "l'agence";
+    if (window.confirm(`Supprimer définitivement ${typeLabel} "${name}" ?`)) {
       try {
         if (type === "Services") {
           const updated = await api.services.delete(name);
           setServices(updated);
-          flashSuccess(`Le service "${name}" a été supprimé.`);
+          flashSuccess(`Service "${name}" supprimé.`);
         } else {
           const updated = await api.agencies.delete(name);
           setAgencies(updated);
-          flashSuccess(`L'agence "${name}" a été supprimée.`);
+          flashSuccess(`Agence "${name}" supprimée.`);
         }
+        setCurrentPage(1); // Reset à la page 1 après suppression
       } catch (err: any) {
         alert(err.message || "Erreur lors de la suppression.");
       }
     }
   };
 
-  // Get content list based on active tab
   const currentItems = activeSubTab === "Services" ? services : agencies;
-
-  // Filter list
   const filteredItems = currentItems.filter((item) => {
     if (searchQuery && !item.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItemsPaginated = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // Reset à la page 1 quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeSubTab]);
+
+  const totalItems = currentItems.length;
+  const filteredCount = filteredItems.length;
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Title & Stats */}
-      <div>
-        <h2 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-indigo-600" />
-          Configuration de l'Organisation
-        </h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Gérez séparément les services internes (émetteurs de besoins) et les agences physiques (destinations d'approvisionnement).
-        </p>
+    <div className="space-y-6">
+      {/* En-tête avec gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 rounded-2xl shadow-xl">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative p-6 text-white">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-white/80">
+                  Configuration organisationnelle
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold mb-1">Services & Agences</h1>
+              <p className="text-sm text-white/80">
+                Gérez les services émetteurs et les agences fournisseurs
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+              <Database className="h-3 w-3" />
+              <span className="text-xs font-medium">{currentUser.role}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tabs list switch & Add button alignment */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-xs">
-        <div className="flex gap-1.5 w-full sm:w-auto">
+      {/* Onglets et actions */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex gap-2 bg-white rounded-2xl p-1 border border-gray-100 shadow-sm">
           <button
             onClick={() => {
               setActiveSubTab("Services");
               setSearchQuery("");
             }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
               activeSubTab === "Services"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md"
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             }`}
           >
             <Layers className="h-4 w-4" />
-            Services Émetteurs ({services.length})
+            Services
+            <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
+              activeSubTab === "Services" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+            }`}>
+              {services.length}
+            </span>
           </button>
           <button
             onClick={() => {
               setActiveSubTab("Agences");
               setSearchQuery("");
             }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
               activeSubTab === "Agences"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md"
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             }`}
           >
             <MapPin className="h-4 w-4" />
-            Agences Fournisseurs ({agencies.length})
+            Agences
+            <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
+              activeSubTab === "Agences" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+            }`}>
+              {agencies.length}
+            </span>
           </button>
         </div>
 
-        {/* Dynamic add button according to active tab */}
         <button
           onClick={() => handleOpenCreateInput(activeSubTab)}
-          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm flex items-center justify-center gap-2 cursor-pointer transition shrink-0"
+          className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-all transform hover:scale-105"
         >
           <Plus className="h-4 w-4" /> 
-          {activeSubTab === "Services" ? "Créer un Service" : "Ajouter une Agence"}
+          {activeSubTab === "Services" ? "Nouveau service" : "Nouvelle agence"}
         </button>
       </div>
 
+      {/* Alertes */}
       {success && (
-        <div className="bg-emerald-50 border-l-4 border-emerald-500 rounded-r-lg p-3 text-xs font-semibold text-emerald-800 shadow-sm animate-fade-in">
-          {success}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3 animate-fade-in">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-emerald-800 text-sm">Succès !</p>
+            <p className="text-xs text-emerald-700 mt-0.5">{success}</p>
+          </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-3 text-xs font-semibold text-red-800 shadow-sm animate-fade-in flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-red-500" />
-          <span>{error}</span>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 animate-fade-in">
+          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-800 text-sm">Erreur</p>
+            <p className="text-xs text-red-700 mt-0.5">{error}</p>
+          </div>
         </div>
       )}
 
-      {/* Searching filters */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-xs flex flex-col sm:flex-row gap-3 text-xs">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder={activeSubTab === "Services" ? "Rechercher un service émetteur..." : "Rechercher une agence fournisseur..."} 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-indigo-500"
-          />
-        </div>
-        {searchQuery && (
-          <button 
-            onClick={() => setSearchQuery("")}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition text-[11px] font-bold"
-          >
-            <FilterX className="h-3.5 w-3.5" />
-            Effacer
-          </button>
-        )}
-      </div>
-
-      {/* Primary Data List */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-48">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent"></div>
+      {/* Barre de recherche */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder={activeSubTab === "Services" ? "Rechercher un service..." : "Rechercher une agence..."} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all"
+            />
           </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="text-center py-12 space-y-2">
-            <MapPin className="h-8 w-8 text-gray-300 mx-auto" />
-            <p className="text-xs text-gray-400 font-medium">
-              Aucun {activeSubTab === "Services" ? "service" : "aucune agence"} ne correspond à votre recherche.
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery("")}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all text-sm font-medium"
+            >
+              <FilterX className="h-4 w-4" />
+              Effacer
+            </button>
+          )}
+        </div>
+        
+        {/* Statistiques de recherche */}
+        {searchQuery && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              {filteredCount} résultat{filteredCount > 1 ? 's' : ''} sur {totalItems}
             </p>
           </div>
-        ) : (
-          <div className="overflow-x-auto text-xs">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-3.5 px-5">Libellé</th>
-                  <th className="py-3.5 px-5 text-right w-36">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-5 font-semibold text-gray-800 flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${activeSubTab === "Services" ? "bg-indigo-500" : "bg-emerald-500"}`}></div>
-                      <span>{item}</span>
-                    </td>
-                    <td className="py-4 px-5 text-right">
-                      <div className="flex justify-end gap-2">
-                        {currentUser.role === "Administrateur" ? (
-                          <button
-                            onClick={() => handleDeleteItem(item, activeSubTab)}
-                            className="bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 text-red-650 p-1.5 rounded-lg transition cursor-pointer"
-                            title={`Supprimer ${activeSubTab === "Services" ? "ce service" : "cette agence"}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-gray-450 italic font-medium">Admin requis</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         )}
       </div>
 
-      {/* CREATE MODAL DIALOG */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 max-w-sm w-full p-6 space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-              <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-                {modalType === "Services" ? <Layers className="h-4 w-4 text-indigo-600" /> : <MapPin className="h-4 w-4 text-emerald-600" />}
-                {modalType === "Services" ? "Nouveau Service Émetteur" : "Nouvelle Agence Fournisseur"}
-              </h3>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer transition"
+      {/* Liste principale avec pagination */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent mx-auto"></div>
+              <p className="mt-4 text-sm text-gray-500">Chargement...</p>
+            </div>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="inline-flex p-4 bg-gray-100 rounded-2xl mb-4">
+              {activeSubTab === "Services" ? (
+                <Layers className="h-12 w-12 text-gray-400" />
+              ) : (
+                <MapPin className="h-12 w-12 text-gray-400" />
+              )}
+            </div>
+            <h4 className="text-sm font-bold text-gray-700 mb-1">Aucun élément trouvé</h4>
+            <p className="text-xs text-gray-400">
+              {searchQuery 
+                ? "Aucun résultat ne correspond à votre recherche"
+                : `Aucun ${activeSubTab === "Services" ? "service" : "agence"} n'est encore enregistré`}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => handleOpenCreateInput(activeSubTab)}
+                className="mt-4 text-indigo-600 hover:text-indigo-700 text-sm font-semibold flex items-center gap-1 mx-auto"
               >
-                <X className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
+                Ajouter un {activeSubTab === "Services" ? "service" : "agence"}
               </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="divide-y divide-gray-100">
+              {currentItemsPaginated.map((item, index) => (
+                <div
+                  key={item}
+                  className={`flex items-center justify-between p-4 hover:bg-gray-50/50 transition-colors ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${
+                      activeSubTab === "Services" 
+                        ? "bg-indigo-100 text-indigo-600" 
+                        : "bg-emerald-100 text-emerald-600"
+                    }`}>
+                      {activeSubTab === "Services" ? (
+                        <Layers className="h-4 w-4" />
+                      ) : (
+                        <MapPin className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">{item}</p>
+                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        ID: {item.toLowerCase().replace(/\s+/g, '_')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {currentUser.role === "Administrateur" ? (
+                      <button
+                        onClick={() => handleDeleteItem(item, activeSubTab)}
+                        className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                        title={`Supprimer ${activeSubTab === "Services" ? "ce service" : "cette agence"}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg">
+                        <ShieldAlert className="h-3 w-3 text-gray-400" />
+                        <span className="text-[10px] text-gray-400">Admin requis</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {formError && (
-              <div className="bg-red-50 text-red-800 text-[11px] font-bold p-2.5 rounded-lg border-l-4 border-red-500 animate-shake">
-                {formError}
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                <div className="text-xs text-gray-500 order-2 sm:order-1">
+                  <span className="font-semibold text-gray-700">Total: {filteredItems.length}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span>Page {currentPage}/{totalPages}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  <span>{currentItemsPaginated.length} élément(s) affiché(s)</span>
+                </div>
+
+                <div className="flex items-center gap-2 order-1 sm:order-2">
+                  <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-lg transition ${
+                      currentPage === 1 
+                        ? 'text-gray-300 cursor-not-allowed' 
+                        : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+                    }`}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - currentPage) <= 1
+                      ) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => goToPage(page)}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                              currentPage === page
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (
+                        (page === 2 && currentPage > 3) ||
+                        (page === totalPages - 1 && currentPage < totalPages - 2)
+                      ) {
+                        return <span key={page} className="text-gray-400">...</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-lg transition ${
+                      currentPage === totalPages 
+                        ? 'text-gray-300 cursor-not-allowed' 
+                        : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             )}
+          </>
+        )}
+      </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-bold text-gray-700 block">
-                  {modalType === "Services" ? "Nom du service émetteur *" : "Nom de l'agence fournisseur *"}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={modalType === "Services" ? "Ex: RH, Comptabilité, Logistique..." : "Ex: Agence de Douala, Yaoundé..."}
-                  value={fieldName}
-                  onChange={(e) => setFieldName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-gray-800 focus:outline-indigo-500 font-medium placeholder-gray-400"
-                />
+      {/* Carte récapitulative */}
+      {!isLoading && filteredItems.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-4 border border-indigo-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-xl">
+                <TrendingUp className="h-5 w-5 text-indigo-600" />
               </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg transition cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg shadow-xs cursor-pointer transition"
-                >
-                  Ajouter
-                </button>
+              <div>
+                <p className="text-xs text-gray-600">Total des éléments</p>
+                <p className="text-2xl font-bold text-indigo-700">{filteredItems.length}</p>
               </div>
-            </form>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">
+                {activeSubTab === "Services" ? "Services actifs" : "Agences enregistrées"}
+              </p>
+              <p className="text-xs text-indigo-600 mt-1">
+                Dernière mise à jour: {new Date().toLocaleDateString("fr-FR")}
+              </p>
+            </div>
           </div>
         </div>
       )}
+
+      {/* MODAL DE CRÉATION */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className={`p-6 ${
+              modalType === "Services" 
+                ? "bg-gradient-to-r from-indigo-600 to-indigo-700" 
+                : "bg-gradient-to-r from-emerald-600 to-emerald-700"
+            } text-white`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-white/20 rounded-lg">
+                    {modalType === "Services" ? (
+                      <Layers className="h-5 w-5" />
+                    ) : (
+                      <MapPin className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">
+                      {modalType === "Services" ? "Nouveau service" : "Nouvelle agence"}
+                    </h3>
+                    <p className="text-xs text-white/80 mt-0.5">
+                      {modalType === "Services" 
+                        ? "Ajoutez un service émetteur de commandes" 
+                        : "Ajoutez une agence fournisseur"}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {formError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700">{formError}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-2 text-sm flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-indigo-600" />
+                    {modalType === "Services" ? "Nom du service" : "Nom de l'agence"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={modalType === "Services" 
+                      ? "Ex: Ressources Humaines, Logistique..." 
+                      : "Ex: Agence de Douala, Agence de Yaoundé..."}
+                    value={fieldName}
+                    onChange={(e) => setFieldName(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all duration-200"
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1.5">
+                    Ce nom sera utilisable dans les formulaires de commande
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className={`flex-1 px-4 py-2.5 text-white font-semibold rounded-xl shadow-md transition-all transform hover:scale-105 flex items-center justify-center gap-2 ${
+                      modalType === "Services"
+                        ? "bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+                        : "bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800"
+                    }`}
+                  >
+                    Créer
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

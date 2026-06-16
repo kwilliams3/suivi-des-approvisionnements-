@@ -13,7 +13,13 @@ import {
   UserSquare, 
   Calendar,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Package,
+  Truck,
+  BarChart3,
+  Zap,
+  Activity,
+  Target
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -74,8 +80,8 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-sm text-gray-500 font-medium">Calcul des statistiques en temps réel...</p>
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-sm text-gray-500 font-medium">Chargement des données...</p>
         </div>
       </div>
     );
@@ -85,150 +91,147 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
   const topAgency = (Object.entries(stats.byAgency) as [string, number][]).sort((a,b) => b[1] - a[1])[0] || ["Aucune", 0];
   const topSupplier = (Object.entries(stats.bySupplier) as [string, number][]).sort((a,b) => b[1] - a[1])[0] || ["Aucun", 0];
 
+  const statsCards = [
+    { id: "total", label: "Commandes Actives", value: stats.totalActives, icon: Package, color: "indigo", bg: "from-indigo-500 to-indigo-600", description: "En cours ou en attente" },
+    { id: "encours", label: "En Cours", value: stats.enCours, icon: Clock, color: "amber", bg: "from-amber-500 to-amber-600", description: "En traitement" },
+    { id: "livre", label: "Livrées", value: stats.livres, icon: CheckCircle2, color: "emerald", bg: "from-emerald-500 to-emerald-600", description: "Livrées et vérifiées" },
+    { id: "nonlivre", label: "Non Livrées", value: stats.nonLivres, icon: XCircle, color: "red", bg: "from-red-500 to-red-600", description: "Problèmes d'approvisionnement" },
+    { id: "archive", label: "Archivées", value: stats.archives, icon: Archive, color: "purple", bg: "from-purple-500 to-purple-600", description: "Commandes terminées" }
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Welcome & Context Header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 border-l-4 border-indigo-600 rounded-r-xl p-4.5 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h2 className="text-sm font-bold text-indigo-950 flex items-center gap-1.5">
-            <Building2 className="h-4.5 w-4.5 text-indigo-600" />
-            Tableau de Bord Analytique &mdash; {currentUser?.role === "Administrateur" ? "Supervision Globale" : `Espace Service : ${currentUser?.service || "Aucun"}`}
-          </h2>
-          <p className="text-[11px] text-indigo-900 mt-0.5 font-medium">
-            {currentUser?.role === "Administrateur" 
-              ? "Vous visualisez et analysez la totalité des flux pour tous les départements et services actifs." 
-              : `Sécurisation d'accès : Affichage restreint exclusivement aux données de votre service : "${currentUser?.service || 'Non rattaché'}"`}
-          </p>
-        </div>
-        <div className="text-[11px] font-bold text-gray-500 bg-white/80 backdrop-blur-xs border border-gray-100 px-3 py-1.5 rounded-lg shrink-0">
-          Session : <span className="text-indigo-700">{currentUser?.nom} {currentUser?.prenom}</span>
+    <div className="space-y-8">
+      {/* Welcome Header avec Glassmorphism */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 rounded-2xl shadow-xl">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative p-6 text-white">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <Activity className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-white/80">
+                  Tableau de bord analytique
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold mb-1">
+                Bonjour, {currentUser?.prenom} {currentUser?.nom}
+              </h1>
+              <p className="text-sm text-white/80">
+                {currentUser?.role === "Administrateur" 
+                  ? "Supervision globale de tous les services et commandes" 
+                  : `Gestion du service : ${currentUser?.service || "Non rattaché"}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-xl backdrop-blur-sm">
+              <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium">Rôle : {currentUser?.role}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Upper Alerts Banner */}
+      {/* Alertes Dynamiques */}
       {(delayedOrders.length > 0 || upcomingOrders.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {delayedOrders.length > 0 && (
-            <div id="alert-delay" className="flex items-start gap-3 bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4 shadow-sm animate-pulse">
-              <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-bold text-red-800">Alertes Commandes de Livraison en Retard ({delayedOrders.length})</h4>
-                <p className="text-xs text-red-700 mt-1">Vous avez des commandes actives dont la date de livraison prévue est dépassée.</p>
-                <button 
-                  onClick={() => onNavigate("Commandes")} 
-                  className="mt-2 text-xs font-semibold text-red-800 hover:underline flex items-center gap-1"
-                >
-                  Inspecter les retards <ArrowRight className="h-3 w-3" />
-                </button>
+            <div className="group relative overflow-hidden bg-gradient-to-r from-red-50 to-red-100/50 rounded-xl border border-red-200 p-5 hover:shadow-lg transition-all duration-300">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
+              <div className="relative flex items-start gap-4">
+                <div className="p-2 bg-red-500 rounded-lg shadow-lg">
+                  <AlertTriangle className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-red-800">Commandes en Retard ({delayedOrders.length})</h4>
+                  <p className="text-xs text-red-700 mt-1">
+                    {delayedOrders.length} commande{delayedOrders.length > 1 ? 's' : ''} dont la date de livraison est dépassée.
+                  </p>
+                  <button 
+                    onClick={() => onNavigate("Commandes")} 
+                    className="mt-3 text-xs font-semibold text-red-700 hover:text-red-900 flex items-center gap-1 group/btn"
+                  >
+                    Voir les détails 
+                    <ArrowRight className="h-3 w-3 transition-transform group-hover/btn:translate-x-1" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
           {upcomingOrders.length > 0 && (
-            <div id="alert-upcoming" className="flex items-start gap-3 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg p-4 shadow-sm">
-              <Bell className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-bold text-amber-800">Alertes Échéances Imminentes ({upcomingOrders.length})</h4>
-                <p className="text-xs text-amber-700 mt-1">Commandes devant être livrées aujourd'hui ou dans les prochaines 72 heures.</p>
-                <button 
-                  onClick={() => onNavigate("Commandes")} 
-                  className="mt-2 text-xs font-semibold text-amber-800 hover:underline flex items-center gap-1"
-                >
-                  Voir les commandes imminentes <ArrowRight className="h-3 w-3" />
-                </button>
+            <div className="group relative overflow-hidden bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-xl border border-amber-200 p-5 hover:shadow-lg transition-all duration-300">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
+              <div className="relative flex items-start gap-4">
+                <div className="p-2 bg-amber-500 rounded-lg shadow-lg">
+                  <Bell className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold text-amber-800">Échéances Imminentes ({upcomingOrders.length})</h4>
+                  <p className="text-xs text-amber-700 mt-1">
+                    {upcomingOrders.length} commande{upcomingOrders.length > 1 ? 's' : ''} à livrer dans les 72 heures.
+                  </p>
+                  <button 
+                    onClick={() => onNavigate("Commandes")} 
+                    className="mt-3 text-xs font-semibold text-amber-700 hover:text-amber-900 flex items-center gap-1 group/btn"
+                  >
+                    Consulter 
+                    <ArrowRight className="h-3 w-3 transition-transform group-hover/btn:translate-x-1" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Main KPI Grid */}
+      {/* Cartes KPI Modernes */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Metric Card */}
-        <div id="kpi-total" className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs flex flex-col justify-between hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Actives</span>
-            <span className="p-2 rounded-lg bg-gray-50 text-gray-500">
-              <Layers className="h-4 w-4" />
-            </span>
+        {statsCards.map((card) => (
+          <div
+            key={card.id}
+            className="group relative overflow-hidden bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${card.bg} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <div className={`p-2 rounded-xl bg-gradient-to-br ${card.bg} shadow-lg`}>
+                  <card.icon className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  {card.label}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-3xl font-bold text-gray-900">{card.value}</h3>
+                <p className="text-[11px] text-gray-500 mt-1">{card.description}</p>
+              </div>
+            </div>
           </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-gray-900">{stats.totalActives}</h3>
-            <p className="text-xs text-gray-500 mt-1">Commandes en cours ou en attente</p>
-          </div>
-        </div>
-
-        {/* En Cours Metric Card */}
-        <div id="kpi-encours" className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs flex flex-col justify-between hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">En Cours</span>
-            <span className="p-2 rounded-lg bg-amber-50 text-amber-600">
-              <Clock className="h-4 w-4 animate-spin-slow" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-amber-700">{stats.enCours}</h3>
-            <p className="text-xs text-gray-500 mt-1">En cours de traitement</p>
-          </div>
-        </div>
-
-        {/* Livrées Metric Card */}
-        <div id="kpi-livre" className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs flex flex-col justify-between hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Livrées</span>
-            <span className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
-              <CheckCircle2 className="h-4 w-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-emerald-700">{stats.livres}</h3>
-            <p className="text-xs text-gray-500 mt-1">Livrées et vérifiées</p>
-          </div>
-        </div>
-
-        {/* Non Livrées Metric Card */}
-        <div id="kpi-nonlivre" className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs flex flex-col justify-between hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-red-600">Non Livrées</span>
-            <span className="p-2 rounded-lg bg-red-50 text-red-600">
-              <XCircle className="h-4 w-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-red-700">{stats.nonLivres}</h3>
-            <p className="text-xs text-gray-500 mt-1">Problèmes d'approvisionnement</p>
-          </div>
-        </div>
-
-        {/* Archives Metric Card */}
-        <div id="kpi-archive" className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs col-span-2 lg:col-span-1 flex flex-col justify-between hover:scale-[1.01] transition-transform">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Archivées</span>
-            <span className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
-              <Archive className="h-4 w-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-bold tracking-tight text-indigo-700">{stats.archives}</h3>
-            <p className="text-xs text-gray-500 mt-1">Retirées du tableau principal</p>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Analytical Breakdown Charts */}
+      {/* Analyses et Rapports */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Agency distribution */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-gray-500" />
-              Répartition par Service
-            </h3>
-            <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">Services</span>
+        {/* Distribution par Service */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg transition-shadow duration-300">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-100 rounded-lg">
+                <Building2 className="h-4 w-4 text-indigo-600" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-800">Services</h3>
+            </div>
+            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
+              Distribution
+            </span>
           </div>
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-80 overflow-y-auto">
             {Object.entries(stats.byAgency).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-8">Aucune commande enregistrée</p>
+              <div className="text-center py-8">
+                <Package className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                <p className="text-xs text-gray-400">Aucune donnée disponible</p>
+              </div>
             ) : (
               (Object.entries(stats.byAgency) as [string, number][])
                 .sort((a,b) => b[1] - a[1])
@@ -236,14 +239,14 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
                 .map(([agency, count]) => {
                   const percentage = stats.totalGlobal > 0 ? (count / stats.totalGlobal) * 100 : 0;
                   return (
-                    <div key={agency} className="space-y-1">
-                      <div className="flex justify-between text-xs font-medium text-gray-700">
-                        <span>{agency}</span>
-                        <span className="text-gray-500">{count} commande{count > 1 ? "s" : ""} ({percentage.toFixed(0)}%)</span>
+                    <div key={agency} className="group">
+                      <div className="flex justify-between text-xs font-medium text-gray-700 mb-1">
+                        <span className="truncate max-w-[150px]" title={agency}>{agency}</span>
+                        <span className="text-gray-500">{count} ({percentage.toFixed(0)}%)</span>
                       </div>
-                      <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-indigo-600 rounded-full" 
+                          className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-500 group-hover:opacity-80" 
                           style={{ width: `${percentage}%` }}
                         ></div>
                       </div>
@@ -252,23 +255,27 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
                 })
             )}
           </div>
-          {Object.keys(stats.byAgency).length > 7 && (
-            <p className="text-[11px] text-center text-gray-400 font-medium">+ {Object.keys(stats.byAgency).length - 7} autres services actifs</p>
-          )}
         </div>
 
-        {/* Center column: Supplier distribution */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-              <UserSquare className="h-4 w-4 text-gray-500" />
-              Répartition par Fournisseur
-            </h3>
-            <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-bold uppercase">Achats/Logistique</span>
+        {/* Distribution par Fournisseur */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-lg transition-shadow duration-300">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-emerald-100 rounded-lg">
+                <Truck className="h-4 w-4 text-emerald-600" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-800">Fournisseurs</h3>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+              Top fournisseurs
+            </span>
           </div>
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-80 overflow-y-auto">
             {Object.entries(stats.bySupplier).length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-8">Aucun fournisseur associé</p>
+              <div className="text-center py-8">
+                <Truck className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                <p className="text-xs text-gray-400">Aucun fournisseur</p>
+              </div>
             ) : (
               (Object.entries(stats.bySupplier) as [string, number][])
                 .sort((a,b) => b[1] - a[1])
@@ -276,14 +283,14 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
                 .map(([supplier, count]) => {
                   const percentage = stats.totalGlobal > 0 ? (count / stats.totalGlobal) * 100 : 0;
                   return (
-                    <div key={supplier} className="space-y-1">
-                      <div className="flex justify-between text-xs font-medium text-gray-700">
-                        <span className="truncate max-w-[180px]" title={supplier}>{supplier}</span>
-                        <span className="text-gray-500">{count} cmd ({percentage.toFixed(0)}%)</span>
+                    <div key={supplier} className="group">
+                      <div className="flex justify-between text-xs font-medium text-gray-700 mb-1">
+                        <span className="truncate max-w-[150px]" title={supplier}>{supplier}</span>
+                        <span className="text-gray-500">{count} ({percentage.toFixed(0)}%)</span>
                       </div>
-                      <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-emerald-500 rounded-full" 
+                          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full transition-all duration-500 group-hover:opacity-80" 
                           style={{ width: `${percentage}%` }}
                         ></div>
                       </div>
@@ -294,18 +301,21 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
           </div>
         </div>
 
-        {/* Right column: Evolution and Summary metrics */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                Derniers Rapports Mensuels
-              </h3>
+        {/* Tendances Mensuelles et Profil */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden">
+          <div className="p-5 border-b border-gray-100">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-purple-100 rounded-lg">
+                <Calendar className="h-4 w-4 text-purple-600" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-800">Tendances Mensuelles</h3>
             </div>
-            <div className="mt-4 space-y-3">
+            <div className="space-y-2">
               {Object.entries(stats.byMonth).length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-8">Aucune tendance chronologique</p>
+                <div className="text-center py-6">
+                  <BarChart3 className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                  <p className="text-xs text-gray-400">Aucune donnée mensuelle</p>
+                </div>
               ) : (
                 (Object.entries(stats.byMonth) as [string, number][])
                   .sort((a,b) => b[0].localeCompare(a[0]))
@@ -314,11 +324,11 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
                     const parts = month.split("-");
                     const dateFormatted = parts.length === 2 ? `${parts[1]}/${parts[0]}` : month;
                     return (
-                      <div key={month} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                        <div className="text-xs font-semibold text-gray-700">{dateFormatted}</div>
+                      <div key={month} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                        <span className="text-xs font-medium text-gray-600">{dateFormatted}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-gray-900">{count} commande{count > 1 ? "s" : ""}</span>
-                          <TrendingUp className="h-3.5 w-3.5 text-emerald-500 animate-pulse" />
+                          <span className="text-xs font-bold text-gray-800">{count} commandes</span>
+                          <TrendingUp className="h-3 w-3 text-emerald-500" />
                         </div>
                       </div>
                     );
@@ -327,63 +337,100 @@ export default function DashboardView({ onNavigate, currentUser }: DashboardView
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 text-indigo-100 rounded-lg p-4 space-y-3 mt-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400">Profil Actuel</h4>
-            <div className="text-xs space-y-1">
-              <div className="flex justify-between">
-                <span>Rôle:</span>
+          {/* Profil Utilisateur */}
+          <div className="bg-gradient-to-br from-indigo-900 to-purple-900 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-white/20 rounded-lg">
+                <Target className="h-4 w-4 text-white" />
+              </div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">Profil Actuel</h4>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-indigo-300">Rôle</span>
                 <span className="font-bold text-white">{currentUser?.role || "Utilisateur"}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Service Majeur:</span>
-                <span className="font-bold text-white truncate max-w-[120px]">{topAgency[0]} ({topAgency[1]} cmd)</span>
+              <div className="flex justify-between items-center py-1 border-b border-white/10">
+                <span className="text-indigo-300">Service majeur</span>
+                <span className="font-bold text-white truncate max-w-[140px]">{topAgency[0]}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Fournisseur Majeur:</span>
-                <span className="font-bold text-white truncate max-w-[120px]">{topSupplier[0]}</span>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-indigo-300">Fournisseur majeur</span>
+                <span className="font-bold text-white truncate max-w-[140px]">{topSupplier[0]}</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-white/10">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-indigo-300">Total commandes</span>
+                <span className="font-bold text-white">{stats.totalGlobal}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity Mini-Feed */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-xs">
-        <h3 className="text-sm font-bold text-gray-800 border-b border-gray-100 pb-3 mb-4">
-          Dernières commandes ajoutées au registre
-        </h3>
+      {/* Dernières Commandes */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-100 rounded-lg">
+                <Zap className="h-4 w-4 text-blue-600" />
+              </div>
+              <h3 className="text-sm font-bold text-gray-800">Dernières commandes</h3>
+            </div>
+            <button 
+              onClick={() => onNavigate("Commandes")}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+            >
+              Voir tout <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+        
         {recentOrders.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-6">Aucune commande active enregistrée</p>
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+            <p className="text-sm text-gray-400">Aucune commande récente</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase bg-gray-50">
-                  <th className="py-2.5 px-3">N° Bon Commande</th>
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Désignation</th>
-                  <th className="py-2.5 px-3">Service</th>
-                  <th className="py-2.5 px-3">Fournisseur</th>
-                  <th className="py-2.5 px-3">Statut</th>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase">N° Commande</th>
+                  <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                  <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase">Désignation</th>
+                  <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase">Service</th>
+                  <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase">Fournisseur</th>
+                  <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase">Statut</th>
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((cmd) => (
-                  <tr key={cmd.Id} className="border-b border-gray-100 hover:bg-gray-50/50">
-                    <td className="py-3 px-3 font-semibold text-gray-900">{cmd.NoBonCommande}</td>
-                    <td className="py-3 px-3 text-gray-500">{new Date(cmd.DateEmission).toLocaleDateString("fr-FR")}</td>
-                    <td className="py-3 px-3 text-gray-700 truncate max-w-xs">{cmd.Designation}</td>
-                    <td className="py-3 px-3 font-bold text-gray-600">{cmd.Agence}</td>
-                    <td className="py-3 px-3 text-gray-500">
-                      <span className="inline-block truncate text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
-                        {cmd.Fournisseur || "Achat Local"}
+                {recentOrders.map((cmd, idx) => (
+                  <tr key={cmd.Id} className={`border-b border-gray-50 hover:bg-gray-50/50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                    <td className="py-3 px-5">
+                      <span className="text-xs font-bold text-indigo-600">{cmd.NoBonCommande}</span>
+                    </td>
+                    <td className="py-3 px-5 text-xs text-gray-500">
+                      {new Date(cmd.DateEmission).toLocaleDateString("fr-FR")}
+                    </td>
+                    <td className="py-3 px-5">
+                      <span className="text-xs text-gray-700 line-clamp-1 max-w-xs">{cmd.Designation}</span>
+                    </td>
+                    <td className="py-3 px-5">
+                      <span className="text-xs font-medium text-gray-600">{cmd.Agence}</span>
+                    </td>
+                    <td className="py-3 px-5">
+                      <span className="inline-flex text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md">
+                        {cmd.Fournisseur || "Local"}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        cmd.Statut === "Livré" ? "bg-emerald-100 text-emerald-800" :
-                        cmd.Statut === "En cours" ? "bg-amber-100 text-amber-800" :
-                        "bg-red-100 text-red-800"
+                    <td className="py-3 px-5">
+                      <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold ${
+                        cmd.Statut === "Livré" ? "bg-emerald-100 text-emerald-700" :
+                        cmd.Statut === "En cours" ? "bg-amber-100 text-amber-700" :
+                        "bg-red-100 text-red-700"
                       }`}>
                         {cmd.Statut}
                       </span>
