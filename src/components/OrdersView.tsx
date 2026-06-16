@@ -22,6 +22,34 @@ import {
 } from "lucide-react";
 import { exportToCSV, exportToPDF } from "../utils/exportUtils";
 
+// Robust ownership check for orders
+const checkOrderOwnership = (order: Order, user: any): boolean => {
+  if (!user) return false;
+  if (user.role === "Administrateur") return true;
+
+  const creatorName = (order.CreePar || order.DemandePar || "").trim().toLowerCase();
+  if (!creatorName) return false;
+
+  const userLogin = (user.username || "").trim().toLowerCase();
+  const userFullName = `${user.prenom || ""} ${user.nom || ""}`.trim().toLowerCase();
+  const userId = (user.id || "").trim().toLowerCase();
+
+  return (
+    creatorName === userLogin ||
+    (userId && creatorName === userId) ||
+    (userFullName && creatorName === userFullName) ||
+    (userLogin && creatorName.includes(userLogin)) ||
+    (userLogin && userLogin.includes(creatorName)) ||
+    (userFullName && creatorName.includes(userFullName)) ||
+    (userFullName && userFullName.includes(creatorName)) ||
+    (() => {
+      if (!userFullName) return false;
+      const parts = userFullName.split(/\s+/).filter(p => p.length > 2);
+      return parts.some(part => creatorName.includes(part));
+    })()
+  );
+};
+
 interface OrdersViewProps {
   currentUser: {
     id: string;
@@ -156,6 +184,13 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
 
   // Open edit modal
   const handleOpenEdit = (order: Order) => {
+    // Constraint: Standard users can only modifier their own inserted orders
+    const isOwner = checkOrderOwnership(order, currentUser);
+    if (currentUser.role !== "Administrateur" && !isOwner) {
+      alert("Vous n'êtes pas autorisé à modifier cette commande car elle a été créée par un autre utilisateur.");
+      return;
+    }
+
     // Constraint: Normal user cannot edit if delivered!
     if (order.Statut === "Livré" && currentUser.role !== "Administrateur") {
       alert("Seul l'administration est autorisée à modifier une commande livrée.");
@@ -242,7 +277,6 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
     e.preventDefault();
 
     if (!fieldBC.trim()) return setFormError("N° Bon de commande obligatoire");
-    if (!fieldDS.trim()) return setFormError("N° DS obligatoire");
 
     // Validate each item
     for (const [idx, item] of formItems.entries()) {
@@ -318,6 +352,12 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
 
   // Update Status directly on table (for fast UX)
   const handleToggleStatusQuick = async (order: Order, newStatus: "En cours" | "Livré" | "Non livré" | "Terminé") => {
+    const isOwner = checkOrderOwnership(order, currentUser);
+    if (currentUser.role !== "Administrateur" && !isOwner) {
+      alert("Vous n'êtes pas autorisé à modifier le statut de cette commande car elle a été créée par un autre utilisateur.");
+      return;
+    }
+
     if (order.Statut === "Livré" && currentUser.role !== "Administrateur") {
       alert("Seul l'administrateur peut réouvrir ou changer le statut d'une commande déjà livrée.");
       return;
@@ -398,16 +438,16 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
     // 1. Simple search bar checking across everything if typed
     if (globalSearch.trim()) {
       const gs = globalSearch.toLowerCase();
-      const matchBC = cmd.NoBonCommande.toLowerCase().includes(gs);
-      const matchDS = cmd.NoDS.toLowerCase().includes(gs);
-      const matchDes = cmd.Designation.toLowerCase().includes(gs);
+      const matchBC = (cmd.NoBonCommande || "").toLowerCase().includes(gs);
+      const matchDS = (cmd.NoDS || "").toLowerCase().includes(gs);
+      const matchDes = (cmd.Designation || "").toLowerCase().includes(gs);
       const matchFour = (cmd.Fournisseur || "").toLowerCase().includes(gs);
       if (!matchBC && !matchDS && !matchDes && !matchFour) return false;
     }
 
     // 2. Search text checks
-    if (searchBC && !cmd.NoBonCommande.toLowerCase().includes(searchBC.toLowerCase())) return false;
-    if (searchDS && !cmd.NoDS.toLowerCase().includes(searchDS.toLowerCase())) return false;
+    if (searchBC && !(cmd.NoBonCommande || "").toLowerCase().includes(searchBC.toLowerCase())) return false;
+    if (searchDS && !(cmd.NoDS || "").toLowerCase().includes(searchDS.toLowerCase())) return false;
     if (searchDesignation && !cmd.Designation.toLowerCase().includes(searchDesignation.toLowerCase())) return false;
 
     // 3. Select matching dropdowns
@@ -740,6 +780,7 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
               <tbody>
                 {filteredOrders.map((cmd) => {
                   const hasPrice = cmd.Prix !== undefined && cmd.Prix > 0;
+                  const isCmdOwner = checkOrderOwnership(cmd, currentUser);
                   return (
                     <tr key={cmd.Id} className="border-b border-gray-100 hover:bg-gray-50/50">
                       {/* Numbers identification */}
@@ -772,7 +813,7 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
                         <p className="font-medium text-gray-700 line-clamp-2" title={cmd.Designation}>
                           {cmd.Designation}
                         </p>
-                        <span className="text-[9px] text-gray-400 italic">Créé par: {cmd.CreePar}</span>
+                        <span className="text-[9px] text-gray-400 italic">Créé par: {cmd.CreePar || cmd.DemandePar}</span>
                       </td>
 
                       {/* Metrics */}
@@ -809,7 +850,9 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
                       {/* Commande Status with fast click dropdown modification */}
                       <td className="py-4 px-4">
                         <div className="relative group">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold cursor-pointer select-none transition-all ${
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold select-none transition-all ${
+                            isCmdOwner ? "cursor-pointer" : ""
+                          } ${
                             cmd.Statut === "Livré" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" :
                             cmd.Statut === "En cours" ? "bg-amber-100 text-amber-800 hover:bg-amber-200" :
                             cmd.Statut === "Terminé" ? "bg-indigo-100 text-indigo-800 hover:bg-indigo-200" :
@@ -822,36 +865,38 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
                               "bg-red-500"
                             }`}></span>
                             {cmd.Statut}
-                            <ChevronDown className="h-3 w-3 opacity-60" />
+                            {isCmdOwner && <ChevronDown className="h-3 w-3 opacity-60" />}
                           </span>
 
                           {/* Quick statuses switch dropdown list */}
-                          <div className="absolute left-0 mt-1 hidden group-hover:block bg-white border border-gray-100 rounded-lg shadow-lg py-1.5 z-40 w-32 animate-fade-in">
-                            <button
-                              onClick={() => handleToggleStatusQuick(cmd, "En cours")}
-                              className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-amber-800 hover:bg-amber-50 flex items-center gap-1.5"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span> En cours
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatusQuick(cmd, "Livré")}
-                              className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-emerald-800 hover:bg-emerald-50 flex items-center gap-1.5"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Livré
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatusQuick(cmd, "Non livré")}
-                              className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-red-800 hover:bg-red-50 flex items-center gap-1.5"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span> Non livré
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatusQuick(cmd, "Terminé")}
-                              className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-indigo-850 hover:bg-indigo-50/50 flex items-center gap-1.5 border-t border-gray-50 pt-1 mt-1"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span> Terminé
-                            </button>
-                          </div>
+                          {isCmdOwner && (
+                            <div className="absolute left-0 mt-1 hidden group-hover:block bg-white border border-gray-100 rounded-lg shadow-lg py-1.5 z-40 w-32 animate-fade-in">
+                              <button
+                                onClick={() => handleToggleStatusQuick(cmd, "En cours")}
+                                className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-amber-800 hover:bg-amber-50 flex items-center gap-1.5"
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span> En cours
+                              </button>
+                              <button
+                                onClick={() => handleToggleStatusQuick(cmd, "Livré")}
+                                className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-emerald-800 hover:bg-emerald-50 flex items-center gap-1.5"
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Livré
+                              </button>
+                              <button
+                                onClick={() => handleToggleStatusQuick(cmd, "Non livré")}
+                                className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-red-800 hover:bg-red-50 flex items-center gap-1.5"
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span> Non livré
+                              </button>
+                              <button
+                                onClick={() => handleToggleStatusQuick(cmd, "Terminé")}
+                                className="w-full text-left text-[11px] font-medium px-3 py-1.5 text-indigo-850 hover:bg-indigo-50/50 flex items-center gap-1.5 border-t border-gray-50 pt-1 mt-1"
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span> Terminé
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -868,13 +913,14 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
                           </button>
 
                           {/* Edit order */}
-                          {(cmd.Statut !== "Livré" || currentUser.role === "Administrateur") && (
+                          {isCmdOwner && (
                             <button
                               onClick={() => handleOpenEdit(cmd)}
-                              title="Modifier la commande"
-                              className="p-1.5 rounded-md hover:bg-amber-50 text-gray-500 hover:text-amber-600 transition-colors cursor-pointer"
+                              title="Modifier la commande et changer le statut"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px] border border-amber-200 transition-colors cursor-pointer shadow-xs font-sans"
                             >
                               <Edit3 className="h-3.5 w-3.5" />
+                              Modifier
                             </button>
                           )}
 
@@ -947,10 +993,9 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-gray-700 block">N° DS *</label>
+                  <label className="font-bold text-gray-700 block">N° DS</label>
                   <input
                     type="text"
-                    required
                     placeholder="Ex: DS-9321"
                     value={fieldDS}
                     onChange={(e) => setFieldDS(e.target.value)}
@@ -1062,12 +1107,15 @@ export default function OrdersView({ currentUser }: OrdersViewProps) {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="font-bold text-gray-700 block">Statut Actuel de Commande *</label>
+                        <label className="font-bold text-gray-700 block">
+                          Statut Actuel de Commande {currentUser.role === "Administrateur" ? "*" : ""}
+                        </label>
                         <select
                           required
+                          disabled={currentUser.role !== "Administrateur"}
                           value={item.Statut}
                           onChange={(e) => handleUpdateFormItem(item.id, { Statut: e.target.value as any })}
-                          className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-medium text-gray-800 focus:outline-indigo-500"
+                          className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-medium text-gray-800 focus:outline-indigo-500 disabled:opacity-60 disabled:bg-gray-100 disabled:cursor-not-allowed"
                         >
                           <option value="En cours">En cours</option>
                           <option value="Livré">Livré</option>

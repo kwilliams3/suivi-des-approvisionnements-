@@ -654,7 +654,7 @@ export default function ArchivesView({ currentUser }: ArchivesViewProps) {
                         </div>
                         <div className="flex justify-between items-center py-1 border-b border-gray-150/50">
                           <span className="text-gray-500 font-medium">Créé par :</span>
-                          <span className="font-bold text-gray-800">{selectedDetailedOrder.CreePar}</span>
+                          <span className="font-bold text-gray-800">{selectedDetailedOrder.CreePar || selectedDetailedOrder.DemandePar}</span>
                         </div>
                         <div className="flex justify-between items-center py-1">
                           <span className="text-gray-500 font-medium">Quantité commandée :</span>

@@ -28,6 +28,8 @@ export interface Order {
   DateLivraison: string;
   Statut: "En cours" | "Livré" | "Non livré" | "Terminé";
   CreePar: string;
+  DemandePar?: string;
+  ServiceDemande?: string;
   Agence: string;
   EstArchive: boolean;
   DateArchivage?: string;

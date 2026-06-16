@@ -440,6 +440,7 @@ async function loadDataFromMssql(pool) {
       DateArchivage: row.DateArchivage ? new Date(row.DateArchivage).toISOString() : null,
       Observation: row.Observation || "",
       DemandePar: row.DemandePar || "",
+      CreePar: row.DemandePar || "",
       ServiceDemande: row.ServiceDemande || "",
       DateCreation: row.DateCreation ? new Date(row.DateCreation).toISOString() : new Date().toISOString(),
       DateModification: row.DateModification ? new Date(row.DateModification).toISOString() : null,
@@ -698,9 +699,53 @@ async function saveToMssqlAsync(data) {
 
     // Cascade deletions handling: Clear children before parents to avoid database foreign key integrity errors
     
+    // H. Sync Commandes (Inserts & Updates before child records to avoid FK conflicts)
+    if (data.commandes) {
+      for (const c of data.commandes) {
+        const dateLiv = c.DateLivraison ? new Date(c.DateLivraison) : null;
+        const dateEmi = c.DateEmission ? new Date(c.DateEmission) : new Date();
+        const dateArch = c.DateArchivage ? new Date(c.DateArchivage) : null;
+        
+        await pool.request()
+          .input("id", sql.NVarChar, c.Id)
+          .input("noBC", sql.NVarChar, c.NoBonCommande)
+          .input("noDS", sql.NVarChar, c.NoDS || null)
+          .input("desig", sql.NVarChar, c.Designation || null)
+          .input("qte", sql.Int, c.Quantite || 1)
+          .input("prix", sql.Decimal(18, 2), c.Prix !== undefined ? c.Prix : null)
+          .input("fourn", sql.NVarChar, c.Fournisseur || "Achat Local")
+          .input("agence", sql.NVarChar, c.Agence || null)
+          .input("dateLiv", sql.DateTime, dateLiv)
+          .input("statut", sql.NVarChar, c.Statut)
+          .input("dateEmi", sql.DateTime, dateEmi)
+          .input("estArch", sql.Bit, c.EstArchive ? 1 : 0)
+          .input("dateArch", sql.DateTime, dateArch)
+          .input("obs", sql.NVarChar, c.Observation || null)
+          .input("demPar", sql.NVarChar, c.CreePar || c.DemandePar || null)
+          .input("serDem", sql.NVarChar, c.ServiceDemande || null)
+          .input("modPar", sql.NVarChar, c.ModifiePar || null)
+          .query(`
+            IF EXISTS (SELECT 1 FROM dbo.Commandes WHERE Id = @id)
+              UPDATE dbo.Commandes SET 
+                NoBonCommande = @noBC, NoDS = @noDS, Designation = @desig, Quantite = @qte, Prix = @prix, 
+                Fournisseur = @fourn, Agence = @agence, DateLivraison = @dateLiv, Statut = @statut, DateEmission = @dateEmi,
+                EstArchive = @estArch, DateArchivage = @dateArch, Observation = @obs, DemandePar = @demPar, ServiceDemande = @serDem,
+                DateModification = GETDATE(), ModifiePar = @modPar
+              WHERE Id = @id;
+            ELSE
+              INSERT INTO dbo.Commandes (Id, NoBonCommande, NoDS, Designation, Quantite, Prix, Fournisseur, Agence, DateLivraison, Statut, DateEmission, EstArchive, DateArchivage, Observation, DemandePar, ServiceDemande, DateCreation)
+              VALUES (@id, @noBC, @noDS, @desig, @qte, @prix, @fourn, @agence, @dateLiv, @statut, @dateEmi, @estArch, @dateArch, @obs, @demPar, @serDem, GETDATE());
+          `);
+      }
+    }
+
     // F. Sync HistoriqueStatuts (And Deletions)
     if (data.historiqueStatuts) {
       for (const h of data.historiqueStatuts) {
+        // Only insert status history if the referenced CommandeId exists in memory DB active or archived list
+        const exists = data.commandes && data.commandes.some(cmd => cmd.Id === h.CommandeId);
+        if (!exists) continue; // Skip orphan status history entries to avoid DB crash
+
         await pool.request()
           .input("id", sql.NVarChar, h.Id)
           .input("cmdId", sql.NVarChar, h.CommandeId)
@@ -726,6 +771,12 @@ async function saveToMssqlAsync(data) {
     // G. Sync Notifications (And Deletions)
     if (data.notifications) {
       for (const n of data.notifications) {
+        // Guard if CommandeId is specified but doesn't exist
+        if (n.CommandeId) {
+          const exists = data.commandes && data.commandes.some(cmd => cmd.Id === n.CommandeId);
+          if (!exists) n.CommandeId = null; // Decouple orphan notifications to avoid FK issues
+        }
+
         await pool.request()
           .input("id", sql.NVarChar, n.Id)
           .input("cmdId", sql.NVarChar, n.CommandeId || null)
@@ -754,44 +805,8 @@ async function saveToMssqlAsync(data) {
       }
     }
 
-    // H. Sync Commandes (And Deletions)
+    // H. Sync Commande deletions last (since child deletions/cascades are already safely synced above)
     if (data.commandes) {
-      for (const c of data.commandes) {
-        const dateLiv = c.DateLivraison ? new Date(c.DateLivraison) : null;
-        const dateEmi = c.DateEmission ? new Date(c.DateEmission) : new Date();
-        const dateArch = c.DateArchivage ? new Date(c.DateArchivage) : null;
-        
-        await pool.request()
-          .input("id", sql.NVarChar, c.Id)
-          .input("noBC", sql.NVarChar, c.NoBonCommande)
-          .input("noDS", sql.NVarChar, c.NoDS || null)
-          .input("desig", sql.NVarChar, c.Designation || null)
-          .input("qte", sql.Int, c.Quantite || 1)
-          .input("prix", sql.Decimal(18, 2), c.Prix !== undefined ? c.Prix : null)
-          .input("fourn", sql.NVarChar, c.Fournisseur || "Achat Local")
-          .input("agence", sql.NVarChar, c.Agence || null)
-          .input("dateLiv", sql.DateTime, dateLiv)
-          .input("statut", sql.NVarChar, c.Statut)
-          .input("dateEmi", sql.DateTime, dateEmi)
-          .input("estArch", sql.Bit, c.EstArchive ? 1 : 0)
-          .input("dateArch", sql.DateTime, dateArch)
-          .input("obs", sql.NVarChar, c.Observation || null)
-          .input("demPar", sql.NVarChar, c.DemandePar || null)
-          .input("serDem", sql.NVarChar, c.ServiceDemande || null)
-          .input("modPar", sql.NVarChar, c.ModifiePar || null)
-          .query(`
-            IF EXISTS (SELECT 1 FROM dbo.Commandes WHERE Id = @id)
-              UPDATE dbo.Commandes SET 
-                NoBonCommande = @noBC, NoDS = @noDS, Designation = @desig, Quantite = @qte, Prix = @prix, 
-                Fournisseur = @fourn, Agence = @agence, DateLivraison = @dateLiv, Statut = @statut, DateEmission = @dateEmi,
-                EstArchive = @estArch, DateArchivage = @dateArch, Observation = @obs, DemandePar = @demPar, ServiceDemande = @serDem,
-                DateModification = GETDATE(), ModifiePar = @modPar
-              WHERE Id = @id;
-            ELSE
-              INSERT INTO dbo.Commandes (Id, NoBonCommande, NoDS, Designation, Quantite, Prix, Fournisseur, Agence, DateLivraison, Statut, DateEmission, EstArchive, DateArchivage, Observation, DemandePar, ServiceDemande, DateCreation)
-              VALUES (@id, @noBC, @noDS, @desig, @qte, @prix, @fourn, @agence, @dateLiv, @statut, @dateEmi, @estArch, @dateArch, @obs, @demPar, @serDem, GETDATE());
-          `);
-      }
       const cIds = data.commandes.map(c => c.Id);
       if (cIds.length > 0) {
         const escapedIds = cIds.map(id => id.replace(/'/g, "''"));

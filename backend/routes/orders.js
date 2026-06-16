@@ -12,9 +12,42 @@ router.get("/", authenticator, (req, res) => {
 
   let foundCommands = db.commandes.filter((c) => c.EstArchive === showArchived);
 
-  // If the user is a standard Utilisateur, restrict they only see orders from their own service (agence)
-  if (req.user?.role === "Utilisateur" && req.user?.service) {
-    foundCommands = foundCommands.filter((c) => c.Agence === req.user.service);
+  // If the user is a standard Utilisateur, restrict they only see orders from their own service (agence) OR those they created themselves
+  const roleLower = (req.user?.role || "").trim().toLowerCase();
+  if (roleLower === "utilisateur") {
+    foundCommands = foundCommands.filter((c) => {
+      const userServ = (req.user.service || "").trim().toLowerCase();
+      const matchService = userServ ? (
+        (c.Agence || "").trim().toLowerCase() === userServ || 
+        (c.ServiceDemande || "").trim().toLowerCase() === userServ
+      ) : false;
+
+      const creatorName = (c.CreePar || c.DemandePar || "").trim().toLowerCase();
+      if (!creatorName) {
+        return matchService;
+      }
+
+      const userLogin = (req.user.username || "").trim().toLowerCase();
+      const userFullName = (req.user.fullName || "").trim().toLowerCase();
+      const userId = (req.user.userId || "").trim().toLowerCase();
+
+      const matchCreator = (
+        creatorName === userLogin ||
+        (userId && creatorName === userId) ||
+        (userFullName && creatorName === userFullName) ||
+        (userLogin && creatorName.includes(userLogin)) ||
+        (userLogin && userLogin.includes(creatorName)) ||
+        (userFullName && creatorName.includes(userFullName)) ||
+        (userFullName && userFullName.includes(creatorName)) ||
+        (() => {
+          if (!userFullName) return false;
+          const parts = userFullName.split(/\s+/).filter(p => p.length > 2);
+          return parts.some(part => creatorName.includes(part));
+        })()
+      );
+
+      return matchService || matchCreator;
+    });
   }
 
   const ordersHydrated = foundCommands.map((cmd) => {
@@ -81,7 +114,7 @@ router.post("/", authenticator, (req, res) => {
         Observation
       } = item;
 
-      if (!NoBonCommande || !NoDS || !Designation || !Quantite || !DateLivraison || !Statut || !Agence || !Fournisseur) {
+      if (!NoBonCommande || !Designation || !Quantite || !DateLivraison || !Statut || !Agence || !Fournisseur) {
         return res.status(400).json({ error: "Tous les champs obligatoires doivent être renseignés pour chaque commande" });
       }
 
@@ -95,7 +128,7 @@ router.post("/", authenticator, (req, res) => {
       const newOrder = {
         Id: orderId,
         NoBonCommande: NoBonCommande.trim(),
-        NoDS: NoDS.trim(),
+        NoDS: NoDS ? NoDS.trim() : "",
         DateEmission: new Date().toISOString(),
         Designation: Designation.trim(),
         Quantite: Number(Quantite),
@@ -104,6 +137,8 @@ router.post("/", authenticator, (req, res) => {
         DateLivraison: DateLivraison,
         Statut: Statut,
         CreePar: req.user.username,
+        DemandePar: req.user.username,
+        ServiceDemande: req.user.service || "",
         Agence: Agence,
         EstArchive: Statut === "Terminé",
         DateArchivage: Statut === "Terminé" ? new Date().toISOString() : undefined,
@@ -160,7 +195,7 @@ router.post("/", authenticator, (req, res) => {
     Observation
   } = req.body;
 
-  if (!NoBonCommande || !NoDS || !Designation || !Quantite || !DateLivraison || !Statut || !Agence || !Fournisseur) {
+  if (!NoBonCommande || !Designation || !Quantite || !DateLivraison || !Statut || !Agence || !Fournisseur) {
     return res.status(400).json({ error: "Tous les champs obligatoires doivent être renseignés, incluant le fournisseur" });
   }
 
@@ -172,7 +207,7 @@ router.post("/", authenticator, (req, res) => {
   const newOrder = {
     Id: orderId,
     NoBonCommande: NoBonCommande.trim(),
-    NoDS: NoDS.trim(),
+    NoDS: NoDS ? NoDS.trim() : "",
     DateEmission: new Date().toISOString(),
     Designation: Designation.trim(),
     Quantite: Number(Quantite),
@@ -181,6 +216,8 @@ router.post("/", authenticator, (req, res) => {
     DateLivraison: DateLivraison,
     Statut: Statut,
     CreePar: req.user.username,
+    DemandePar: req.user.username,
+    ServiceDemande: req.user.service || "",
     Agence: Agence,
     EstArchive: Statut === "Terminé",
     DateArchivage: Statut === "Terminé" ? new Date().toISOString() : undefined,
@@ -256,8 +293,8 @@ router.put("/:id", authenticator, (req, res) => {
 
   const previousStatut = cmd.Statut;
 
-  cmd.NoBonCommande = NoBonCommande ? NoBonCommande.trim() : cmd.NoBonCommande;
-  cmd.NoDS = NoDS ? NoDS.trim() : cmd.NoDS;
+  cmd.NoBonCommande = NoBonCommande !== undefined ? NoBonCommande.trim() : cmd.NoBonCommande;
+  cmd.NoDS = NoDS !== undefined ? NoDS.trim() : cmd.NoDS;
   cmd.Designation = Designation ? Designation.trim() : cmd.Designation;
   cmd.Quantite = Quantite !== undefined ? Number(Quantite) : cmd.Quantite;
   cmd.Prix = Prix !== undefined ? Number(Prix) : cmd.Prix;

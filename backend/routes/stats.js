@@ -9,8 +9,41 @@ router.get("/", authenticator, (req, res) => {
   const db = readDb();
 
   let filteredCommandes = db.commandes;
-  if (req.user?.role === "Utilisateur" && req.user?.service) {
-    filteredCommandes = db.commandes.filter((c) => c.Agence === req.user.service);
+  const roleLower = (req.user?.role || "").trim().toLowerCase();
+  if (roleLower === "utilisateur") {
+    filteredCommandes = db.commandes.filter((c) => {
+      const userServ = (req.user.service || "").trim().toLowerCase();
+      const matchService = userServ ? (
+        (c.Agence || "").trim().toLowerCase() === userServ || 
+        (c.ServiceDemande || "").trim().toLowerCase() === userServ
+      ) : false;
+
+      const creatorName = (c.CreePar || c.DemandePar || "").trim().toLowerCase();
+      if (!creatorName) {
+        return matchService;
+      }
+
+      const userLogin = (req.user.username || "").trim().toLowerCase();
+      const userFullName = (req.user.fullName || "").trim().toLowerCase();
+      const userId = (req.user.userId || "").trim().toLowerCase();
+
+      const matchCreator = (
+        creatorName === userLogin ||
+        (userId && creatorName === userId) ||
+        (userFullName && creatorName === userFullName) ||
+        (userLogin && creatorName.includes(userLogin)) ||
+        (userLogin && userLogin.includes(creatorName)) ||
+        (userFullName && creatorName.includes(userFullName)) ||
+        (userFullName && userFullName.includes(creatorName)) ||
+        (() => {
+          if (!userFullName) return false;
+          const parts = userFullName.split(/\s+/).filter(p => p.length > 2);
+          return parts.some(part => creatorName.includes(part));
+        })()
+      );
+
+      return matchService || matchCreator;
+    });
   }
 
   const totalActives = filteredCommandes.filter((c) => !c.EstArchive).length;
